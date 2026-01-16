@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuizMaster - Online Quiz Platform</title>
+    <link rel="stylesheet" href="main.css">
+</head>
+<body>
+    <div id="root">
+        <!-- Navigation Bar -->
+        <nav class="navbar">
+            <div class="nav-container">
+                <div class="logo" onclick="showDashboard()">
+                    <h1>📚 QuizMaster</h1>
+                </div>
+                <ul class="nav-menu" id="navMenu">
+                    <li><a href="#" onclick="showDashboard()">Dashboard</a></li>
+                    <li><a href="#" onclick="showQuizzesPage()">Quizzes</a></li>
+                    <li><a href="#" onclick="showLeaderboard()">Leaderboard</a></li>
+                    <li><a href="#" onclick="showProfilePage()">Profile</a></li>
+                    <li><a href="#" onclick="logoutUser()" id="logoutBtn" style="display:none;">Logout</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Home Page -->
+        <div id="homePage" class="page active">
+            <div class="hero-section">
+                <div class="hero-content">
+                    <h2>Welcome to QuizMaster</h2>
+                    <p>Test your knowledge and improve your skills</p>
+                    <div class="hero-buttons">
+                        <button class="btn btn-primary" onclick="showLoginPage()">Login</button>
+                        <button class="btn btn-secondary" onclick="showSignupPage()">Sign Up</button>
+                    </div>
+                </div>
+                <div class="hero-image">
+                    <div class="quiz-icon">🎯</div>
+                </div>
+            </div>
+
+            <div class="features-section">
+                <h3>Why Choose QuizMaster?</h3>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <h4>Fast & Easy</h4>
+                        <p>Create and take quizzes in seconds</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <h4>Track Progress</h4>
+                        <p>Monitor your scores and improvements</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔒</div>
+                        <h4>Secure</h4>
+                        <p>Your data is safe and protected</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📱</div>
+                        <h4>Mobile Friendly</h4>
+                        <p>Works on all devices seamlessly</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Page -->
+        <div id="loginPage" class="page">
+            <div class="auth-container">
+                <div class="auth-card">
+                    <h2>Login to Your Account</h2>
+                    <form id="loginForm" onsubmit="handleLogin(event)">
+                        <div class="form-group">
+                            <label for="loginEmail">Email Address</label>
+                            <input type="email" id="loginEmail" placeholder="Enter your email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">Password</label>
+                            <input type="password" id="loginPassword" placeholder="Enter your password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Login</button>
+                    </form>
+                    <p class="auth-link">Don't have an account? <a href="#" onclick="showSignupPage()">Sign Up</a></p>
+                    <p class="demo-link"><a href="#" onclick="demoLogin()">Demo Login</a></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Signup Page -->
+        <div id="signupPage" class="page">
+            <div class="auth-container">
+                <div class="auth-card">
+                    <h2>Create Your Account</h2>
+                    <form id="signupForm" onsubmit="handleSignup(event)">
+                        <div class="form-group">
+                            <label for="signupName">Full Name</label>
+                            <input type="text" id="signupName" placeholder="Enter your full name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="signupEmail">Email Address</label>
+                            <input type="email" id="signupEmail" placeholder="Enter your email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="signupPassword">Password</label>
+                            <input type="password" id="signupPassword" placeholder="Create a password" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="signupConfirmPassword">Confirm Password</label>
+                            <input type="password" id="signupConfirmPassword" placeholder="Confirm your password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+                    </form>
+                    <p class="auth-link">Already have an account? <a href="#" onclick="showLoginPage()">Login</a></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quiz Page -->
+        <div id="quizPage" class="page">
+            <div class="quiz-container">
+                <div class="quiz-header">
+                    <button class="btn btn-secondary" onclick="backToQuizzes()" style="margin-bottom: 1rem;">← Back to Quizzes</button>
+                    <h2 id="quizTitle">Quiz</h2>
+                    <div class="quiz-info">
+                        <span class="timer" id="timer"></span>
+                    </div>
+                </div>
+
+                <div class="quiz-content" id="quizContent">
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill"></div>
+                    </div>
+                    <p class="question-counter"><span id="currentQuestion">1</span>/<span id="totalQuestions">0</span></p>
+                    <h3 id="questionText">Loading question...</h3>
+                    <div id="answersContainer" class="answers-container"></div>
+                    <div class="quiz-buttons">
+                        <button class="btn btn-secondary" onclick="previousQuestion()" id="prevBtn">← Previous</button>
+                        <button class="btn btn-primary" onclick="nextQuestion()" id="nextBtn">Next →</button>
+                        <button class="btn btn-success" onclick="submitQuiz()" id="submitBtn" style="display:none;">Submit Quiz</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Page -->
+        <div id="dashboardPage" class="page">
+            <div class="dashboard-container">
+                <div class="dashboard-header">
+                    <h2>Your Dashboard</h2>
+                    <p id="dashboardUser">Welcome, User!</p>
+                </div>
+
+                <div class="dashboard-content">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">✅</div>
+                            <div class="stat-info">
+                                <p>Total Quizzes</p>
+                                <h3 id="totalQuizzes">0</h3>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">⭐</div>
+                            <div class="stat-info">
+                                <p>Average Score</p>
+                                <h3 id="averageScore">0%</h3>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🏆</div>
+                            <div class="stat-info">
+                                <p>Best Score</p>
+                                <h3 id="bestScore">0%</h3>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">📈</div>
+                            <div class="stat-info">
+                                <p>Total Points</p>
+                                <h3 id="totalPoints">0</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="results-section">
+                        <h3>Recent Quiz Results</h3>
+                        <table class="results-table">
+                            <thead>
+                                <tr>
+                                    <th>Quiz Name</th>
+                                    <th>Score</th>
+                                    <th>Percentage</th>
+                                    <th>Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsTableBody">
+                                <tr>
+                                    <td colspan="5" class="no-results">No quiz results yet. Start taking quizzes!</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="actions">
+                        <button class="btn btn-primary" onclick="showQuizzesPage()">Take a Quiz</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quizzes Page -->
+        <div id="quizzesPage" class="page">
+            <div class="quizzes-container">
+                <div class="quizzes-header">
+                    <h2>Available Quizzes</h2>
+                    <div class="search-filter">
+                        <select id="difficultyFilter" onchange="filterQuizzes()">
+                            <option value="">All Difficulties</option>
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="quizzesGrid" class="quizzes-grid"></div>
+            </div>
+        </div>
+
+        <!-- Leaderboard Page -->
+        <div id="leaderboardPage" class="page">
+            <div class="leaderboard-container">
+                <div class="leaderboard-header">
+                    <h2>🏆 Leaderboard</h2>
+                    <p>Top performers on QuizMaster</p>
+                </div>
+
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Name</th>
+                            <th>Average Score</th>
+                            <th>Best Score</th>
+                            <th>Total Quizzes</th>
+                            <th>Total Points</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 2rem;">Loading leaderboard...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Profile Page -->
+        <div id="profilePage" class="page">
+            <div class="profile-container">
+                <div class="profile-card">
+                    <h2>User Profile</h2>
+                    <div class="profile-info">
+                        <div class="info-group">
+                            <label>Name</label>
+                            <input type="text" id="profileName" placeholder="Your name">
+                        </div>
+                        <div class="info-group">
+                            <label>Email</label>
+                            <input type="email" id="profileEmail" disabled>
+                        </div>
+                        <div class="info-group">
+                            <label>New Password (leave blank to keep current)</label>
+                            <input type="password" id="profilePassword" placeholder="Enter new password">
+                        </div>
+                        <div class="info-group">
+                            <label>Confirm Password</label>
+                            <input type="password" id="profileConfirmPassword" placeholder="Confirm password">
+                        </div>
+                        <button class="btn btn-primary" onclick="updateProfile()">Update Profile</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification"></div>
+
+    <script src="main.js"></script>
+</body>
+</html>
