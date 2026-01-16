@@ -78,7 +78,7 @@ async function handleLogin(event) {
             showNotification('Login successful!', 'success');
             setTimeout(() => {
                 updateNavbar();
-                showDashboard();
+                showHome();
                 document.getElementById('loginForm').reset();
             }, 500);
         } else {
@@ -127,7 +127,7 @@ async function handleSignup(event) {
             showNotification('Account created successfully!', 'success');
             setTimeout(() => {
                 updateNavbar();
-                showDashboard();
+                showHome();
                 document.getElementById('signupForm').reset();
             }, 500);
         } else {
@@ -500,64 +500,118 @@ function goToDashboard() {
 // DASHBOARD & STATISTICS
 // ============================================
 
-function loadDashboardData() {
-    const user = JSON.parse(localStorage.getItem('currentUser'));
-    
-    if (!user) {
-        showLoginPage();
-        return;
-    }
-    
-    document.getElementById('dashboardUser').textContent = 'Welcome, ' + user.name + '!';
-    
-    // Get user's quiz history
-    const userQuizzes = JSON.parse(localStorage.getItem('userQuizzes_' + user.id)) || [];
-    
-    // Calculate statistics
-    const totalQuizzes = userQuizzes.length;
-    let totalScore = 0;
-    let bestScore = 0;
-    let totalPoints = 0;
-    
-    userQuizzes.forEach(quiz => {
-        totalScore += quiz.percentage;
-        totalPoints += quiz.score;
-        if (quiz.percentage > bestScore) {
-            bestScore = quiz.percentage;
+async function loadDashboardData() {
+    try {
+        // Load platform statistics
+        const quizzesResponse = await fetch(`${API_URL}/quizzes`);
+        const quizzesData = await quizzesResponse.json();
+        
+        const meResponse = await fetch(`${API_URL}/auth/me`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        const userData = await meResponse.json();
+        
+        // Get all results for platform stats
+        const resultsResponse = await fetch(`${API_URL}/results`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        const resultsData = await resultsResponse.json();
+        
+        // Calculate platform statistics
+        const totalQuizzes = quizzesData.quizzes ? quizzesData.quizzes.length : 0;
+        const totalResults = resultsData.results ? resultsData.results.length : 0;
+        
+        let platformAvgScore = 0;
+        if (totalResults > 0) {
+            const totalPercentage = resultsData.results.reduce((sum, r) => sum + r.percentage, 0);
+            platformAvgScore = Math.round(totalPercentage / totalResults);
         }
-    });
-    
-    const averageScore = totalQuizzes > 0 ? Math.round(totalScore / totalQuizzes) : 0;
-    
-    // Update dashboard
-    document.getElementById('totalQuizzes').textContent = totalQuizzes;
-    document.getElementById('averageScore').textContent = averageScore + '%';
-    document.getElementById('bestScore').textContent = bestScore + '%';
-    document.getElementById('totalPoints').textContent = totalPoints;
-    
-    // Load results table
-    loadResultsTable(userQuizzes);
+        
+        // Update dashboard header
+        document.getElementById('dashboardUser').textContent = `Platform Overview & Your Stats | User: ${userData.name}`;
+        
+        // Update platform stats
+        document.getElementById('totalUsers').textContent = '5+'; // Demo count
+        document.getElementById('totalQuizzesAdmin').textContent = totalQuizzes;
+        document.getElementById('testsCompleted').textContent = totalResults;
+        document.getElementById('avgPlatformScore').textContent = platformAvgScore + '%';
+        
+        // Update user personal stats
+        const userStats = userData.stats;
+        document.getElementById('userQuizzesTaken').textContent = userStats.total_quizzes;
+        document.getElementById('userAvgScore').textContent = userStats.average_score.toFixed(1) + '%';
+        document.getElementById('userBestScore').textContent = userStats.best_score + '%';
+        document.getElementById('userTotalPoints').textContent = userStats.total_points;
+        
+        // Load quiz categories info
+        loadQuizCategoriesInfo(quizzesData.quizzes);
+        
+        // Load user's recent results
+        loadResultsTable(resultsData.results);
+        
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        showNotification('Error loading dashboard data', 'error');
+    }
 }
 
-function loadResultsTable(quizzes) {
-    const tbody = document.getElementById('resultsTableBody');
+function loadQuizCategoriesInfo(quizzes) {
+    const quizInfoGrid = document.getElementById('quizInfoGrid');
     
-    if (quizzes.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="no-results">No quiz results yet. Start taking quizzes!</td></tr>';
+    if (!quizzes || quizzes.length === 0) {
+        quizInfoGrid.innerHTML = '<p class="no-results">No quizzes available</p>';
         return;
     }
     
-    // Sort quizzes by date (newest first)
-    const sortedQuizzes = quizzes.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
-    
-    tbody.innerHTML = sortedQuizzes.map(quiz => `
-        <tr>
-            <td>${quiz.quizName}</td>
-            <td>${quiz.score}/${quiz.totalQuestions}</td>
-            <td>${quiz.percentage}%</td>
-            <td>${quiz.date}</td>
-        </tr>
+    quizInfoGrid.innerHTML = quizzes.map(quiz => `
+        <div class="quiz-info-card">
+            <div class="quiz-info-header">
+                <h4>${quiz.title}</h4>
+                <span class="difficulty-badge ${quiz.difficulty}">${quiz.difficulty}</span>
+            </div>
+            <p class="quiz-category">📁 ${quiz.category || 'General'}</p>
+            <div class="quiz-details">
+                <div class="detail-item">
+                    <span class="detail-label">Questions:</span>
+                    <span class="detail-value">${quiz.total_questions}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Time:</span>
+                    <span class="detail-value">${quiz.time_limit ? Math.round(quiz.time_limit / 60) + ' min' : 'Unlimited'}</span>
+                </div>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="startQuiz(${quiz.id})">Take Quiz</button>
+        </div>
     `).join('');
+}
+
+function loadResultsTable(results) {
+    const tbody = document.getElementById('resultsTableBody');
+    
+    if (!results || results.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="no-results">No quiz results yet. Start taking quizzes!</td></tr>';
+        return;
+    }
+    
+    // Sort by date (newest first) and get last 10
+    const sortedResults = results.sort((a, b) => new Date(b.attempted_at) - new Date(a.attempted_at)).slice(0, 10);
+    
+    tbody.innerHTML = sortedResults.map(result => {
+        const date = new Date(result.attempted_at).toLocaleDateString();
+        return `
+            <tr>
+                <td>${result.quiz_title}</td>
+                <td>${result.score}/${result.total_questions}</td>
+                <td>${result.percentage}%</td>
+                <td>${date}</td>
+                <td><button class="btn btn-sm btn-secondary" onclick="viewResult(${result.id})">View</button></td>
+            </tr>
+        `;
+    }).join('');
 }
 
 function updateUserStats(userId, score) {
