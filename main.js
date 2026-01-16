@@ -2,34 +2,36 @@
 // CONFIGURATION
 // ============================================
 
-// Detect if running on mobile/different device
-// For mobile access: use your PC's IP address
-// For local access: use 127.0.0.1
 const getAPIUrl = () => {
-    const hostname = window.location.hostname || 'localhost';
-    console.log('🔍 Detected hostname:', hostname);
+    const hostname = window.location.hostname;
+    console.log('Current hostname:', hostname, 'Protocol:', window.location.protocol);
     
-    // If accessing from GitHub Pages or remote hosting, default to localhost
-    if (hostname.includes('github') || hostname.includes('netlify') || hostname.includes('vercel') || hostname === '') {
-        console.log('📍 GitHub Pages/Remote detected, using localhost');
+    // Always default to localhost:5000 for local development
+    if (!hostname || hostname === '' || hostname === 'localhost' || hostname === '127.0.0.1') {
         return 'http://127.0.0.1:5000/api';
     }
     
-    // Check if localhost
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        console.log('📍 Localhost detected, using 127.0.0.1');
+    // For GitHub Pages or remote
+    if (hostname.includes('github') || hostname.includes('netlify')) {
+        const PC_IP = '192.168.x.x';
+        return `http://${PC_IP}:5000/api`;
+    }
+    
+    // For file:// protocol
+    if (window.location.protocol === 'file:') {
         return 'http://127.0.0.1:5000/api';
     }
     
-    // For mobile/external access on local network, use the same host but port 5000
-    console.log('📍 Local network detected, using:', hostname);
-    return `http://${hostname}:5000/api`;
+    return 'http://127.0.0.1:5000/api';
 };
 
-const API_URL = getAPIUrl();
+let API_URL = getAPIUrl();
 console.log('✅ API URL Set to:', API_URL);
 let currentUser = null;
 let authToken = null;
+let offlineMode = false;
+let backendOnline = false;
+
 
 // ============================================
 // INITIALIZATION
@@ -84,21 +86,45 @@ async function handleLogin(event) {
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
     
+    if (!email || !password) {
+        showNotification('Please enter email and password', 'error');
+        return;
+    }
+    
+    console.log('Login attempt:', { email, apiUrl: API_URL });
+    
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
         const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email, password }),
+            signal: controller.signal
         });
         
-        const data = await response.json();
+        clearTimeout(timeoutId);
+        backendOnline = true;
+        offlineMode = false;
         
-        if (response.ok) {
+        let data;
+        try {
+            data = await response.json();
+        } catch (e) {
+            console.error('Failed to parse response:', e);
+            showNotification('Invalid response from server', 'error');
+            return;
+        }
+        
+        if (response.ok && data.token) {
             authToken = data.token;
             currentUser = data.user;
             localStorage.setItem('authToken', authToken);
+            localStorage.setItem('currentUser', JSON.stringify(data.user));
             
             showNotification('Login successful!', 'success');
             setTimeout(() => {
@@ -107,13 +133,55 @@ async function handleLogin(event) {
                 document.getElementById('loginForm').reset();
             }, 500);
         } else {
-            showNotification(data.message || 'Login failed', 'error');
+            showNotification(data.message || 'Login failed. Check your email and password.', 'error');
         }
     } catch (error) {
         console.error('Login error:', error);
-        const errorMsg = getNetworkErrorMessage(error);
-        showNotification(errorMsg, 'error');
+        backendOnline = false;
+        
+        if (error.name === 'AbortError') {
+            showNotification('⏱️ Connection timeout.\n\nBackend server is not responding. Make sure to run: python app.py', 'error');
+        } else {
+            const errorMsg = getNetworkErrorMessage(error);
+            showNotification(errorMsg, 'error');
+        }
+        
+        if (error.message === 'Failed to fetch' || error.name === 'AbortError') {
+            offerOfflineMode(email);
+        }
     }
+}
+
+function offerOfflineMode(email) {
+    const useOffline = confirm('Backend is unreachable.\n\nUse DEMO MODE to explore the app?\n\n(You can test features with sample data)');
+    if (useOffline) {
+        enableOfflineMode(email);
+    }
+}
+
+function enableOfflineMode(email = 'demo@user.com') {
+    offlineMode = true;
+    authToken = 'offline_mode_' + Date.now();
+    currentUser = {
+        id: 1,
+        name: email.split('@')[0] || 'Demo User',
+        email: email,
+        stats: {
+            total_quizzes: 0,
+            average_score: 0,
+            best_score: 0,
+            total_points: 0
+        },
+        created_at: new Date().toISOString()
+    };
+    
+    localStorage.setItem('authToken', authToken);
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    localStorage.setItem('offlineMode', 'true');
+    
+    showNotification('📱 DEMO MODE ACTIVE\n\n(Note: Changes won\'t be saved)', 'success');
+    updateNavbar();
+    showHome();
 }
 
 // Handle Signup
@@ -135,20 +203,30 @@ async function handleSignup(event) {
     }
     
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
         const response = await fetch(`${API_URL}/auth/signup`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
-            body: JSON.stringify({ name, email, password })
+            body: JSON.stringify({ name, email, password }),
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
+        backendOnline = true;
+        offlineMode = false;
         
         const data = await response.json();
         
-        if (response.ok) {
+        if (response.ok && data.token) {
             authToken = data.token;
             currentUser = data.user;
             localStorage.setItem('authToken', authToken);
+            localStorage.setItem('currentUser', JSON.stringify(data.user));
             
             showNotification('Account created successfully!', 'success');
             setTimeout(() => {
@@ -160,8 +238,19 @@ async function handleSignup(event) {
             showNotification(data.message || 'Signup failed', 'error');
         }
     } catch (error) {
-        const errorMsg = getNetworkErrorMessage(error);
-        showNotification(errorMsg, 'error');
+        console.error('Signup error:', error);
+        backendOnline = false;
+        
+        if (error.name === 'AbortError') {
+            showNotification('⏱️ Connection timeout.\n\nBackend server is not responding. Make sure to run: python app.py', 'error');
+        } else {
+            const errorMsg = getNetworkErrorMessage(error);
+            showNotification(errorMsg, 'error');
+        }
+        
+        if (error.message === 'Failed to fetch' || error.name === 'AbortError') {
+            offerOfflineMode(email);
+        }
     }
 }
 
@@ -170,23 +259,17 @@ async function handleSignup(event) {
 // ============================================
 
 function getNetworkErrorMessage(error) {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    console.error('Network Error Details:', {
+        message: error.message,
+        name: error.name,
+        apiUrl: API_URL
+    });
     
-    if (error.message === 'Failed to fetch') {
-        if (isMobile) {
-            return `Connection Error: Cannot reach backend at ${API_URL}. 
-Make sure:
-1. PC backend is running (python app.py)
-2. You're accessing from correct URL (http://[YOUR_PC_IP]:8000)
-3. Mobile and PC are on same WiFi network
-4. Windows Firewall allows port 5000
-Click 📱 in navbar for setup instructions.`;
-        } else {
-            return `Connection Error: Cannot reach backend. Make sure backend is running: python app.py in the backend folder`;
-        }
+    if (error.message === 'Failed to fetch' || error.name === 'AbortError') {
+        return `❌ CANNOT CONNECT TO BACKEND\n\nAPI URL: ${API_URL}\n\n✅ TO FIX:\n\n1. Open Command Prompt or PowerShell\n2. Navigate to: e:\\\\quiz-websites\\\\backend\n3. Run: python app.py\n4. You should see: "Running on http://0.0.0.0:5000"\n5. Refresh this page\n\n📋 Required:\n  • Python installed\n  • Flask installed (pip install flask flask-cors)\n  • Port 5000 not in use`;
     }
-    
-    return 'Error: ' + error.message;
+
+    return 'Error: ' + (error.message || 'Connection failed');
 }
 
 // Demo Login
@@ -729,3 +812,463 @@ function clearAllData() {
         location.reload();
     }
 }
+
+// ============================================
+// 3D ANIMATIONS FOR LOGIN/SIGNUP PAGES
+// ============================================
+
+// Function to show login page with 3D animation
+const originalShowLoginPage = showLoginPage;
+showLoginPage = function() {
+    originalShowLoginPage();
+    setTimeout(() => {
+        init3DLoginAnimation();
+    }, 100);
+};
+
+// Function to show signup page with 3D animation
+const originalShowSignupPage = showSignupPage;
+showSignupPage = function() {
+    originalShowSignupPage();
+    setTimeout(() => {
+        init3DSignupAnimation();
+    }, 100);
+};
+
+// Initialize 3D animation for login page
+function init3DLoginAnimation() {
+    const container = document.getElementById('canvas3d-container');
+    if (!container) return;
+    
+    // Clear previous canvas if exists
+    container.innerHTML = '';
+    
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    container.appendChild(canvas);
+    
+    // Setup scene
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    
+    const ctx = canvas.getContext('2d');
+    canvas.width = width;
+    canvas.height = height;
+    
+    // Animation variables
+    let animationId;
+    let time = 0;
+    
+    // Create animated shapes
+    const shapes = [];
+    
+    // Add floating cubes
+    for (let i = 0; i < 5; i++) {
+        shapes.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            size: 20 + Math.random() * 40,
+            speedX: (Math.random() - 0.5) * 2,
+            speedY: (Math.random() - 0.5) * 2,
+            rotationX: Math.random() * Math.PI * 2,
+            rotationY: Math.random() * Math.PI * 2,
+            rotationZ: Math.random() * Math.PI * 2,
+            rotationSpeedX: (Math.random() - 0.5) * 0.02,
+            rotationSpeedY: (Math.random() - 0.5) * 0.02,
+            rotationSpeedZ: (Math.random() - 0.5) * 0.02,
+            hue: 240 + Math.random() * 60,
+            type: 'cube'
+        });
+    }
+    
+    // Add floating spheres
+    for (let i = 0; i < 3; i++) {
+        shapes.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            radius: 15 + Math.random() * 25,
+            speedX: (Math.random() - 0.5) * 1.5,
+            speedY: (Math.random() - 0.5) * 1.5,
+            rotationX: Math.random() * Math.PI * 2,
+            rotationY: Math.random() * Math.PI * 2,
+            rotationSpeedX: (Math.random() - 0.5) * 0.015,
+            rotationSpeedY: (Math.random() - 0.5) * 0.015,
+            hue: 280 + Math.random() * 40,
+            type: 'sphere'
+        });
+    }
+    
+    // Add particles
+    const particles = [];
+    for (let i = 0; i < 100; i++) {
+        particles.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            vx: (Math.random() - 0.5) * 2,
+            vy: (Math.random() - 0.5) * 2,
+            life: Math.random() * 1,
+            size: 1 + Math.random() * 3,
+            hue: 240 + Math.random() * 120
+        });
+    }
+    
+    function drawCube(x, y, size, rotX, rotY, rotZ, hue) {
+        ctx.save();
+        ctx.globalAlpha = 0.7;
+        
+        // Calculate perspective scaling
+        const scale = 1 + Math.sin(rotX) * 0.1;
+        const scaledSize = size * scale;
+        
+        // Draw cube with gradient
+        const gradient = ctx.createLinearGradient(x - scaledSize / 2, y - scaledSize / 2, 
+                                                   x + scaledSize / 2, y + scaledSize / 2);
+        gradient.addColorStop(0, `hsla(${hue}, 100%, 50%, 0.8)`);
+        gradient.addColorStop(1, `hsla(${hue + 30}, 100%, 40%, 0.6)`);
+        
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = `hsl(${hue}, 100%, 60%)`;
+        ctx.lineWidth = 2;
+        
+        // Draw rotated square (isometric view of cube)
+        const points = [];
+        const angles = [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2];
+        for (let angle of angles) {
+            const px = x + scaledSize / 2 * Math.cos(angle + rotZ);
+            const py = y + scaledSize / 2 * Math.sin(angle + rotZ);
+            points.push([px, py]);
+        }
+        
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        for (let point of points) {
+            ctx.lineTo(point[0], point[1]);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+    
+    function drawSphere(x, y, radius, rotX, rotY, hue) {
+        ctx.save();
+        ctx.globalAlpha = 0.8;
+        
+        // Draw sphere with gradient
+        const gradient = ctx.createRadialGradient(x - radius / 3, y - radius / 3, radius / 3,
+                                                  x, y, radius);
+        gradient.addColorStop(0, `hsla(${hue}, 100%, 70%, 0.9)`);
+        gradient.addColorStop(0.7, `hsla(${hue}, 100%, 50%, 0.8)`);
+        gradient.addColorStop(1, `hsla(${hue}, 100%, 30%, 0.6)`);
+        
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = `hsl(${hue}, 100%, 60%)`;
+        ctx.lineWidth = 1.5;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Draw some rings for 3D effect
+        ctx.globalAlpha = 0.3;
+        ctx.strokeStyle = `hsl(${hue}, 100%, 70%)`;
+        ctx.beginPath();
+        ctx.ellipse(x, y, radius * 0.8, radius * 0.3, Math.PI / 6 + rotY, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+    
+    function drawParticles() {
+        ctx.globalAlpha = 0.6;
+        particles.forEach((p, i) => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= 0.005;
+            
+            if (p.life <= 0) {
+                particles[i] = {
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2,
+                    life: 1,
+                    size: 1 + Math.random() * 3,
+                    hue: 240 + Math.random() * 120
+                };
+            }
+            
+            // Wrap around
+            if (p.x < 0) p.x = width;
+            if (p.x > width) p.x = 0;
+            if (p.y < 0) p.y = height;
+            if (p.y > height) p.y = 0;
+            
+            ctx.fillStyle = `hsla(${p.hue}, 100%, 50%, ${p.life * 0.6})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+    
+    function animate() {
+        // Clear canvas with semi-transparent background for trail effect
+        ctx.fillStyle = 'rgba(10, 10, 30, 0.1)';
+        ctx.fillRect(0, 0, width, height);
+        
+        time += 0.016;
+        
+        // Update and draw shapes
+        shapes.forEach(shape => {
+            // Update position
+            shape.x += shape.speedX;
+            shape.y += shape.speedY;
+            
+            // Update rotation
+            shape.rotationX += shape.rotationSpeedX;
+            shape.rotationY += shape.rotationSpeedY;
+            if (shape.rotationZ !== undefined) {
+                shape.rotationZ += shape.rotationSpeedZ;
+            }
+            
+            // Wrap around screen
+            if (shape.x < -50) shape.x = width + 50;
+            if (shape.x > width + 50) shape.x = -50;
+            if (shape.y < -50) shape.y = height + 50;
+            if (shape.y > height + 50) shape.y = -50;
+            
+            // Draw shape
+            if (shape.type === 'cube') {
+                drawCube(shape.x, shape.y, shape.size, shape.rotationX, 
+                        shape.rotationY, shape.rotationZ, shape.hue);
+            } else if (shape.type === 'sphere') {
+                drawSphere(shape.x, shape.y, shape.radius, shape.rotationX, 
+                          shape.rotationY, shape.hue);
+            }
+        });
+        
+        // Draw particles
+        drawParticles();
+        
+        animationId = requestAnimationFrame(animate);
+    }
+    
+    animate();
+    
+    // Store animation ID for cleanup
+    container.animationId = animationId;
+}
+
+// Initialize 3D animation for signup page (similar but different style)
+function init3DSignupAnimation() {
+    const container = document.getElementById('canvas3d-container-signup');
+    if (!container) return;
+    
+    // Clear previous canvas if exists
+    container.innerHTML = '';
+    
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    container.appendChild(canvas);
+    
+    // Setup scene
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    
+    const ctx = canvas.getContext('2d');
+    canvas.width = width;
+    canvas.height = height;
+    
+    // Animation variables
+    let animationId;
+    let time = 0;
+    
+    // Create more energetic animated shapes for signup
+    const shapes = [];
+    
+    // Add pyramids
+    for (let i = 0; i < 4; i++) {
+        shapes.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            size: 25 + Math.random() * 35,
+            speedX: (Math.random() - 0.5) * 2.5,
+            speedY: (Math.random() - 0.5) * 2.5,
+            rotationX: Math.random() * Math.PI * 2,
+            rotationY: Math.random() * Math.PI * 2,
+            rotationZ: Math.random() * Math.PI * 2,
+            rotationSpeedX: (Math.random() - 0.5) * 0.025,
+            rotationSpeedY: (Math.random() - 0.5) * 0.025,
+            rotationSpeedZ: (Math.random() - 0.5) * 0.025,
+            hue: 120 + Math.random() * 80,
+            type: 'pyramid'
+        });
+    }
+    
+    // Add more spheres for signup
+    for (let i = 0; i < 5; i++) {
+        shapes.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            radius: 10 + Math.random() * 30,
+            speedX: (Math.random() - 0.5) * 2,
+            speedY: (Math.random() - 0.5) * 2,
+            rotationX: Math.random() * Math.PI * 2,
+            rotationY: Math.random() * Math.PI * 2,
+            rotationSpeedX: (Math.random() - 0.5) * 0.02,
+            rotationSpeedY: (Math.random() - 0.5) * 0.02,
+            hue: 100 + Math.random() * 100,
+            type: 'sphere'
+        });
+    }
+    
+    // Add more particles
+    const particles = [];
+    for (let i = 0; i < 150; i++) {
+        particles.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            vx: (Math.random() - 0.5) * 3,
+            vy: (Math.random() - 0.5) * 3,
+            life: Math.random() * 1,
+            size: 0.5 + Math.random() * 2,
+            hue: 100 + Math.random() * 150
+        });
+    }
+    
+    function drawPyramid(x, y, size, rotX, rotY, rotZ, hue) {
+        ctx.save();
+        ctx.globalAlpha = 0.75;
+        
+        // Calculate scale based on rotation
+        const scale = 1 + Math.cos(rotY) * 0.15;
+        const scaledSize = size * scale;
+        
+        // Draw pyramid
+        const gradient = ctx.createLinearGradient(x - scaledSize / 2, y + scaledSize / 2,
+                                                  x, y - scaledSize / 2);
+        gradient.addColorStop(0, `hsla(${hue}, 100%, 45%, 0.9)`);
+        gradient.addColorStop(1, `hsla(${hue + 40}, 100%, 55%, 0.7)`);
+        
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = `hsl(${hue}, 100%, 60%)`;
+        ctx.lineWidth = 2;
+        
+        // Three points of pyramid
+        const points = [
+            [x, y - scaledSize / 2],  // top
+            [x - scaledSize / 2, y + scaledSize / 2],  // left
+            [x + scaledSize / 2, y + scaledSize / 2]   // right
+        ];
+        
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        ctx.lineTo(points[1][0], points[1][1]);
+        ctx.lineTo(points[2][0], points[2][1]);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+    
+    function drawSphere(x, y, radius, rotX, rotY, hue) {
+        ctx.save();
+        ctx.globalAlpha = 0.85;
+        
+        const gradient = ctx.createRadialGradient(x - radius / 3, y - radius / 3, radius / 3,
+                                                  x, y, radius);
+        gradient.addColorStop(0, `hsla(${hue}, 100%, 75%, 0.95)`);
+        gradient.addColorStop(0.6, `hsla(${hue}, 100%, 55%, 0.85)`);
+        gradient.addColorStop(1, `hsla(${hue}, 100%, 35%, 0.7)`);
+        
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = `hsl(${hue}, 100%, 65%)`;
+        ctx.lineWidth = 1.5;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+    
+    function drawParticles() {
+        ctx.globalAlpha = 0.7;
+        particles.forEach((p, i) => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= 0.004;
+            
+            if (p.life <= 0) {
+                particles[i] = {
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    vx: (Math.random() - 0.5) * 3,
+                    vy: (Math.random() - 0.5) * 3,
+                    life: 1,
+                    size: 0.5 + Math.random() * 2,
+                    hue: 100 + Math.random() * 150
+                };
+            }
+            
+            if (p.x < 0) p.x = width;
+            if (p.x > width) p.x = 0;
+            if (p.y < 0) p.y = height;
+            if (p.y > height) p.y = 0;
+            
+            ctx.fillStyle = `hsla(${p.hue}, 100%, 50%, ${p.life * 0.7})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+    
+    function animate() {
+        ctx.fillStyle = 'rgba(15, 25, 20, 0.12)';
+        ctx.fillRect(0, 0, width, height);
+        
+        time += 0.016;
+        
+        shapes.forEach(shape => {
+            shape.x += shape.speedX;
+            shape.y += shape.speedY;
+            
+            shape.rotationX += shape.rotationSpeedX;
+            shape.rotationY += shape.rotationSpeedY;
+            if (shape.rotationZ !== undefined) {
+                shape.rotationZ += shape.rotationSpeedZ;
+            }
+            
+            if (shape.x < -50) shape.x = width + 50;
+            if (shape.x > width + 50) shape.x = -50;
+            if (shape.y < -50) shape.y = height + 50;
+            if (shape.y > height + 50) shape.y = -50;
+            
+            if (shape.type === 'pyramid') {
+                drawPyramid(shape.x, shape.y, shape.size, shape.rotationX, 
+                           shape.rotationY, shape.rotationZ, shape.hue);
+            } else if (shape.type === 'sphere') {
+                drawSphere(shape.x, shape.y, shape.radius, shape.rotationX, 
+                          shape.rotationY, shape.hue);
+            }
+        });
+        
+        drawParticles();
+        
+        animationId = requestAnimationFrame(animate);
+    }
+    
+    animate();
+    
+    container.animationId = animationId;
+}
+
+

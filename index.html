@@ -150,7 +150,8 @@
 
         <!-- Login Page -->
         <div id="loginPage" class="page">
-            <div class="auth-container">
+            <div id="canvas3d-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;"></div>
+            <div class="auth-container" style="position: relative; z-index: 10;">
                 <div class="auth-card">
                     <h2>Login to Your Account</h2>
                     <form id="loginForm" onsubmit="handleLogin(event)">
@@ -172,7 +173,8 @@
 
         <!-- Signup Page -->
         <div id="signupPage" class="page">
-            <div class="auth-container">
+            <div id="canvas3d-container-signup" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;"></div>
+            <div class="auth-container" style="position: relative; z-index: 10;">
                 <div class="auth-card">
                     <h2>Create Your Account</h2>
                     <form id="signupForm" onsubmit="handleSignup(event)">
