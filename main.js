@@ -2,7 +2,19 @@
 // CONFIGURATION
 // ============================================
 
-const API_URL = 'http://127.0.0.1:5000/api';
+// Detect if running on mobile/different device
+// For mobile access: use your PC's IP address
+// For local access: use 127.0.0.1
+const getAPIUrl = () => {
+    // Check if localhost is accessible
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://127.0.0.1:5000/api';
+    }
+    // For mobile/external access, use the same host but port 5000
+    return `http://${window.location.hostname}:5000/api`;
+};
+
+const API_URL = getAPIUrl();
 let currentUser = null;
 let authToken = null;
 
@@ -231,6 +243,57 @@ function showProfilePage() {
     }
     showPage('profilePage');
     loadProfileData();
+}
+
+// ============================================
+// MOBILE ACCESS SETUP
+// ============================================
+
+function showMobileAccessPage() {
+    showPage('mobileAccessPage');
+    detectAndDisplayIPAddress();
+}
+
+async function detectAndDisplayIPAddress() {
+    try {
+        // Try to fetch the local IP from the browser
+        const response = await fetch('http://127.0.0.1:5000/api/config', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        }).catch(() => null);
+        
+        // Fallback: display instructions for manual IP detection
+        const pcIpElement = document.getElementById('pcIpAddress');
+        const mobileUrlElement = document.getElementById('mobileUrl');
+        
+        // Try to detect if on local machine or external
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            pcIpElement.textContent = 'Find your PC IP address (see instructions below)';
+            mobileUrlElement.textContent = 'http://[YOUR_PC_IP]:8000';
+        } else {
+            // If already on external IP, show it
+            pcIpElement.textContent = window.location.hostname;
+            mobileUrlElement.textContent = `http://${window.location.hostname}:8000`;
+        }
+    } catch (error) {
+        console.log('Could not detect IP, showing manual instructions');
+    }
+}
+
+function copyIPAddress() {
+    const ipElement = document.getElementById('pcIpAddress');
+    const text = ipElement.textContent;
+    
+    if (text.includes('YOUR_PC_IP')) {
+        showNotification('Please replace [YOUR_PC_IP] with your actual PC IP address', 'info');
+        return;
+    }
+    
+    navigator.clipboard.writeText(text).then(() => {
+        showNotification('IP address copied to clipboard!', 'success');
+    }).catch(err => {
+        showNotification('Failed to copy IP address', 'error');
+    });
 }
 
 // ============================================

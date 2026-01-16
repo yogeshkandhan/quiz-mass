@@ -19,6 +19,7 @@
                     <li><a href="#" onclick="showQuizzesPage()">Quizzes</a></li>
                     <li><a href="#" onclick="showLeaderboard()">Leaderboard</a></li>
                     <li><a href="#" onclick="showProfilePage()">Profile</a></li>
+                    <li><a href="#" onclick="showMobileAccessPage()" title="Setup mobile access">📱</a></li>
                     <li><a href="#" onclick="logoutUser()" id="logoutBtn" style="display:none;">Logout</a></li>
                 </ul>
             </div>
@@ -144,6 +145,64 @@
                     <h3>Ready to Test Your Knowledge?</h3>
                     <p>Join thousands of students and professionals improving their skills</p>
                     <button class="btn btn-primary btn-lg" onclick="showSignupPage()">Get Started Now</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Connection Info Page -->
+        <div id="mobileAccessPage" class="page">
+            <div class="mobile-access-container">
+                <div class="mobile-access-card">
+                    <h2>📱 Mobile Access Setup</h2>
+                    <p>To access QuizMaster from your mobile device on the same network:</p>
+                    
+                    <div class="setup-steps">
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h3>Find Your PC IP Address</h3>
+                                <p>Copy the IP address shown below:</p>
+                                <div class="ip-display">
+                                    <code id="pcIpAddress">Detecting IP...</code>
+                                    <button class="btn-copy" onclick="copyIPAddress()" title="Copy IP Address">📋</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h3>On Your Mobile Device</h3>
+                                <p>Open your mobile browser and go to:</p>
+                                <div class="url-display">
+                                    <code id="mobileUrl">http://[YOUR_PC_IP]:8000</code>
+                                </div>
+                                <p class="example">Example: <code>http://192.168.1.100:8000</code></p>
+                            </div>
+                        </div>
+                        
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h3>Make Sure Both Servers Are Running</h3>
+                                <p>✅ Backend: http://127.0.0.1:5000</p>
+                                <p>✅ Frontend: http://127.0.0.1:8000</p>
+                                <p>✅ Same WiFi network as your PC</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="troubleshooting">
+                        <h3>🔧 Troubleshooting</h3>
+                        <ul>
+                            <li><strong>Connection Refused:</strong> Make sure backend is running with `python app.py`</li>
+                            <li><strong>Can't find PC IP:</strong> Check Windows settings or use `ipconfig` in CMD</li>
+                            <li><strong>Mobile can't reach PC:</strong> Ensure both devices are on the same WiFi network</li>
+                            <li><strong>Port 5000 not accessible:</strong> Check Windows Firewall settings</li>
+                        </ul>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="showHome()">← Back to Home</button>
                 </div>
             </div>
         </div>
