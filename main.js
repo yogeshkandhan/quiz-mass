@@ -98,7 +98,8 @@ async function handleLogin(event) {
         }
     } catch (error) {
         console.error('Login error:', error);
-        showNotification('Login error: ' + error.message + '. Is the backend running on http://127.0.0.1:5000?', 'error');
+        const errorMsg = getNetworkErrorMessage(error);
+        showNotification(errorMsg, 'error');
     }
 }
 
@@ -146,8 +147,33 @@ async function handleSignup(event) {
             showNotification(data.message || 'Signup failed', 'error');
         }
     } catch (error) {
-        showNotification('Signup error: ' + error.message, 'error');
+        const errorMsg = getNetworkErrorMessage(error);
+        showNotification(errorMsg, 'error');
     }
+}
+
+// ============================================
+// ERROR HANDLING & HELPERS
+// ============================================
+
+function getNetworkErrorMessage(error) {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (error.message === 'Failed to fetch') {
+        if (isMobile) {
+            return `Connection Error: Cannot reach backend at ${API_URL}. 
+Make sure:
+1. PC backend is running (python app.py)
+2. You're accessing from correct URL (http://[YOUR_PC_IP]:8000)
+3. Mobile and PC are on same WiFi network
+4. Windows Firewall allows port 5000
+Click 📱 in navbar for setup instructions.`;
+        } else {
+            return `Connection Error: Cannot reach backend. Make sure backend is running: python app.py in the backend folder`;
+        }
+    }
+    
+    return 'Error: ' + error.message;
 }
 
 // Demo Login
