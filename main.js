@@ -7,23 +7,27 @@
 // For local access: use 127.0.0.1
 const getAPIUrl = () => {
     const hostname = window.location.hostname || 'localhost';
+    console.log('🔍 Detected hostname:', hostname);
     
     // If accessing from GitHub Pages or remote hosting, default to localhost
     if (hostname.includes('github') || hostname.includes('netlify') || hostname.includes('vercel') || hostname === '') {
+        console.log('📍 GitHub Pages/Remote detected, using localhost');
         return 'http://127.0.0.1:5000/api';
     }
     
     // Check if localhost
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        console.log('📍 Localhost detected, using 127.0.0.1');
         return 'http://127.0.0.1:5000/api';
     }
     
     // For mobile/external access on local network, use the same host but port 5000
+    console.log('📍 Local network detected, using:', hostname);
     return `http://${hostname}:5000/api`;
 };
 
 const API_URL = getAPIUrl();
-console.log('API URL:', API_URL);
+console.log('✅ API URL Set to:', API_URL);
 let currentUser = null;
 let authToken = null;
 
