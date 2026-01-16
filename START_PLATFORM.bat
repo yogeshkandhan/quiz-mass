@@ -2,7 +2,7 @@
 REM Start QuizMaster - Both Frontend and Backend
 REM This batch file starts both servers in separate windows
 
-setlocal
+setlocal enabledelayedexpansion
 
 echo =====================================================
 echo Starting QuizMaster Platform
@@ -42,14 +42,14 @@ if exist "%REPO_DIR%backend\app.py" (
 
 REM Start Backend Server (Port 5000)
 echo [1/2] Starting Backend Server on port 5000...
-start "QuizMaster Backend" cmd /k "cd /d "%BACKEND_DIR%" && %PYTHON_CMD% app.py"
+start "QuizMaster Backend" cmd /k "cd /d !BACKEND_DIR! && !PYTHON_CMD! app.py"
 
 REM Wait a moment for backend to start
 timeout /t 2 /nobreak >nul
 
 REM Start Frontend Server (Port 8000)
 echo [2/2] Starting Frontend Server on port 8000...
-start "QuizMaster Frontend" cmd /k "cd /d "%REPO_DIR%" && %PYTHON_CMD% -m http.server 8000 --bind 127.0.0.1"
+start "QuizMaster Frontend" cmd /k "cd /d !REPO_DIR! && !PYTHON_CMD! -m http.server 8000 --bind 127.0.0.1"
 
 REM Wait a moment for frontend to start
 timeout /t 2 /nobreak >nul
