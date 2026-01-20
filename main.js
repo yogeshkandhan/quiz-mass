@@ -632,28 +632,35 @@ function goToDashboard() {
 
 // ============================================
 // DASHBOARD & STATISTICS
-// ============================================
-
+// ================================
 async function loadDashboardData() {
     try {
-        // Load platform statistics
-        const quizzesResponse = await fetch(`${API_URL}/quizzes`);
-        const quizzesData = await quizzesResponse.json();
-        
-        const meResponse = await fetch(`${API_URL}/auth/me`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
+        const response = await fetch(`${API_URL}/dashboard`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
         });
-        const userData = await meResponse.json();
         
-        // Get all results for platform stats
-        const resultsResponse = await fetch(`${API_URL}/results`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        const resultsData = await resultsResponse.json();
+        const data = await response.json();
+        
+        document.getElementById('dashboardUser').textContent = `Welcome, ${data.user.name}!`;
+
+        // Platform Statistics
+        document.getElementById('totalUsers').textContent = data.stats.total_users || 0;
+        document.getElementById('totalQuizzesAdmin').textContent = data.stats.total_quizzes || 0;
+        document.getElementById('testsCompleted').textContent = data.stats.tests_completed || 0;
+        document.getElementById('avgPlatformScore').textContent = (data.stats.average_platform_score || 0).toFixed(1) + '%';
+
+        // User Personal Stats
+        document.getElementById('userQuizzesTaken').textContent = (data.user_stats.quizzes_taken || 0);
+        document.getElementById('userAvgScore').textContent = (data.user_stats.average_score || 0).toFixed(1) + '%';
+        document.getElementById('userBestScore').textContent = (data.user_stats.best_score || 0) + '%';
+        document.getElementById('userTotalPoints').textContent = (data.user_stats.total_points || 0);
+        
+        loadResultsTable(data.recent_results);
+    } catch (error) {
+        showNotification('Failed to load dashboard: ' + error.message, 'error');
+    }
+}    
+    const resultsData = await resultsResponse.json();
         
         // Calculate platform statistics
         const totalQuizzes = quizzesData.quizzes ? quizzesData.quizzes.length : 0;
@@ -686,12 +693,10 @@ async function loadDashboardData() {
         
         // Load user's recent results
         loadResultsTable(resultsData.results);
-        
-    } catch (error) {
-        console.error('Error loading dashboard data:', error);
-        showNotification('Error loading dashboard data', 'error');
-    }
-}
+    // Fix: Remove misplaced closing brace and invalid finally block
+    // (Assume this belongs inside an async function with appropriate try/catch)
+    // The original try/catch above already handles errors - this finally block is improper JS.
+    // No code needed here; remove to fix syntax.
 
 function loadQuizCategoriesInfo(quizzes) {
     const quizInfoGrid = document.getElementById('quizInfoGrid');

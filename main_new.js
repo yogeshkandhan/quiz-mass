@@ -26,7 +26,9 @@ function initializeApp() {
 // ============================================
 
 async function checkAuthStatus() {
-    authToken = localStorage.getItem('authToken');
+    let authToken = localStorage.getItem('authToken');
+let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+
     
     if (authToken) {
         try {
@@ -114,6 +116,7 @@ async function handleSignup(event) {
             authToken = data.token;
             currentUser = data.user;
             localStorage.setItem('authToken', authToken);
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
             showNotification('Account created successfully!', 'success');
             setTimeout(() => {
                 updateNavbar();
@@ -446,10 +449,18 @@ async function loadDashboardData() {
         const data = await response.json();
         
         document.getElementById('dashboardUser').textContent = `Welcome, ${data.user.name}!`;
-        document.getElementById('totalQuizzes').textContent = data.stats.total_quizzes;
-        document.getElementById('averageScore').textContent = data.stats.average_score.toFixed(1) + '%';
-        document.getElementById('bestScore').textContent = data.stats.best_score + '%';
-        document.getElementById('totalPoints').textContent = data.stats.total_points;
+
+        // Platform Statistics
+        document.getElementById('totalUsers').textContent = data.stats.total_users || 0;
+        document.getElementById('totalQuizzesAdmin').textContent = data.stats.total_quizzes || 0;
+        document.getElementById('testsCompleted').textContent = data.stats.tests_completed || 0;
+        document.getElementById('avgPlatformScore').textContent = (data.stats.average_platform_score || 0).toFixed(1) + '%';
+
+        // User Personal Stats
+        document.getElementById('userQuizzesTaken').textContent = (data.user_stats.quizzes_taken || 0);
+        document.getElementById('userAvgScore').textContent = (data.user_stats.average_score || 0).toFixed(1) + '%';
+        document.getElementById('userBestScore').textContent = (data.user_stats.best_score || 0) + '%';
+        document.getElementById('userTotalPoints').textContent = (data.user_stats.total_points || 0);
         
         loadResultsTable(data.recent_results);
     } catch (error) {
