@@ -3,25 +3,7 @@
 // ============================================
 
 const getAPIUrl = () => {
-    const hostname = window.location.hostname;
-    console.log('Current hostname:', hostname, 'Protocol:', window.location.protocol);
-    
-    // Always default to localhost:5000 for local development
-    if (!hostname || hostname === '' || hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://127.0.0.1:5000/api';
-    }
-    
-    // For GitHub Pages or remote
-    if (hostname.includes('github') || hostname.includes('netlify')) {
-        const PC_IP = '192.168.x.x';
-        return `http://${PC_IP}:5000/api`;
-    }
-    
-    // For file:// protocol
-    if (window.location.protocol === 'file:') {
-        return 'http://127.0.0.1:5000/api';
-    }
-    
+    console.log('Force setting API URL to local backend.');
     return 'http://127.0.0.1:5000/api';
 };
 
@@ -87,15 +69,24 @@ async function handleLogin(event) {
     const password = document.getElementById('loginPassword').value;
     
     if (!email || !password) {
+        console.log('Login attempt: Missing email or password.');
         showNotification('Please enter email and password', 'error');
         return;
     }
     
-    console.log('Login attempt:', { email, apiUrl: API_URL });
+    console.log('Login attempt initiated.');
+    console.log('Email:', email);
+    console.log('Login API URL:', `${API_URL}/auth/login`);
     
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const timeoutId = setTimeout(() => {
+            controller.abort();
+            console.warn('Login request timed out after 10 seconds.');
+        }, 10000);
+        
+        const requestBody = JSON.stringify({ email, password });
+        console.log('Request body:', requestBody);
         
         const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
@@ -103,19 +94,22 @@ async function handleLogin(event) {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({ email, password }),
+            body: requestBody,
             signal: controller.signal
         });
         
         clearTimeout(timeoutId);
         backendOnline = true;
         offlineMode = false;
+
+        console.log('Raw response:', response);
         
         let data;
         try {
             data = await response.json();
+            console.log('Parsed response data:', data);
         } catch (e) {
-            console.error('Failed to parse response:', e);
+            console.error('Failed to parse response as JSON:', e);
             showNotification('Invalid response from server', 'error');
             return;
         }
@@ -126,6 +120,7 @@ async function handleLogin(event) {
             localStorage.setItem('authToken', authToken);
             localStorage.setItem('currentUser', JSON.stringify(data.user));
             
+            console.log('Login successful!');
             showNotification('Login successful!', 'success');
             setTimeout(() => {
                 updateNavbar();
@@ -133,14 +128,18 @@ async function handleLogin(event) {
                 document.getElementById('loginForm').reset();
             }, 500);
         } else {
+            console.error('Login failed:', data.message || 'Unknown reason.');
             showNotification(data.message || 'Login failed. Check your email and password.', 'error');
         }
     } catch (error) {
-        console.error('Login error:', error);
+        console.error('Login network error:', error);
         backendOnline = false;
         
         if (error.name === 'AbortError') {
-            showNotification('⏱️ Connection timeout.\n\nBackend server is not responding. Make sure to run: python app.py', 'error');
+            showNotification(
+                '⏱️ Connection timeout.\n\nBackend server is not responding. Make sure to run: python app.py',
+                'error'
+            );
         } else {
             const errorMsg = getNetworkErrorMessage(error);
             showNotification(errorMsg, 'error');
@@ -153,10 +152,16 @@ async function handleLogin(event) {
 }
 
 function offerOfflineMode(email) {
-    const useOffline = confirm('Backend is unreachable.\n\nUse DEMO MODE to explore the app?\n\n(You can test features with sample data)');
+    const useOffline = confirm(
+        'Backend is unreachable.\n\nUse DEMO MODE to explore the app?\n\n(You can test features with sample data)'
+    );
     if (useOffline) {
         enableOfflineMode(email);
     }
+}
+
+if (useOffline) {
+    enableOfflineMode(email);
 }
 
 function enableOfflineMode(email = 'demo@user.com') {
@@ -178,7 +183,7 @@ function enableOfflineMode(email = 'demo@user.com') {
     localStorage.setItem('authToken', authToken);
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     localStorage.setItem('offlineMode', 'true');
-    
+
     showNotification('📱 DEMO MODE ACTIVE\n\n(Note: Changes won\'t be saved)', 'success');
     updateNavbar();
     showHome();
@@ -242,7 +247,11 @@ async function handleSignup(event) {
         backendOnline = false;
         
         if (error.name === 'AbortError') {
-            showNotification('⏱️ Connection timeout.\n\nBackend server is not responding. Make sure to run: python app.py', 'error');
+            showNotification(
+                '⏱️ Connection timeout.\n\nBackend server is not responding. Make sure to run: python app.py',
+                'error'
+            );
+            // Optionally, you could add more user-friendly suggestions here if needed.
         } else {
             const errorMsg = getNetworkErrorMessage(error);
             showNotification(errorMsg, 'error');
@@ -266,7 +275,22 @@ function getNetworkErrorMessage(error) {
     });
     
     if (error.message === 'Failed to fetch' || error.name === 'AbortError') {
-        return `❌ CANNOT CONNECT TO BACKEND\n\nAPI URL: ${API_URL}\n\n✅ TO FIX:\n\n1. Open Command Prompt or PowerShell\n2. Navigate to: e:\\\\quiz-websites\\\\backend\n3. Run: python app.py\n4. You should see: "Running on http://0.0.0.0:5000"\n5. Refresh this page\n\n📋 Required:\n  • Python installed\n  • Flask installed (pip install flask flask-cors)\n  • Port 5000 not in use`;
+        return `❌ CANNOT CONNECT TO BACKEND
+
+API URL: ${API_URL}
+
+✅ TO FIX:
+
+1. Open Command Prompt or PowerShell
+2. Navigate to: e:\\quiz-websites\\backend
+3. Run: python app.py
+4. You should see: "Running on http://0.0.0.0:5000"
+5. Refresh this page
+
+📋 Required:
+  • Python installed
+  • Flask installed (pip install flask flask-cors)
+  • Port 5000 not in use`;
     }
 
     return 'Error: ' + (error.message || 'Connection failed');
@@ -338,6 +362,7 @@ function showDashboard() {
     }
     showPage('dashboardPage');
     loadDashboardData();
+    loadPlatformStatsAndQuizzes();
 }
 
 function showQuizzesPage() {
@@ -643,60 +668,54 @@ async function loadDashboardData() {
         
         document.getElementById('dashboardUser').textContent = `Welcome, ${data.user.name}!`;
 
-        // Platform Statistics
-        document.getElementById('totalUsers').textContent = data.stats.total_users || 0;
-        document.getElementById('totalQuizzesAdmin').textContent = data.stats.total_quizzes || 0;
-        document.getElementById('testsCompleted').textContent = data.stats.tests_completed || 0;
-        document.getElementById('avgPlatformScore').textContent = (data.stats.average_platform_score || 0).toFixed(1) + '%';
-
-        // User Personal Stats
-        document.getElementById('userQuizzesTaken').textContent = (data.user_stats.quizzes_taken || 0);
-        document.getElementById('userAvgScore').textContent = (data.user_stats.average_score || 0).toFixed(1) + '%';
-        document.getElementById('userBestScore').textContent = (data.user_stats.best_score || 0) + '%';
-        document.getElementById('userTotalPoints').textContent = (data.user_stats.total_points || 0);
+        // User Personal Stats (from backend /dashboard endpoint)
+        document.getElementById('userQuizzesTaken').textContent = (data.stats.total_quizzes || 0);
+        document.getElementById('userAvgScore').textContent = (data.stats.average_score || 0).toFixed(1) + '%';
+        document.getElementById('userBestScore').textContent = (data.stats.best_score || 0) + '%';
+        document.getElementById('userTotalPoints').textContent = (data.stats.total_points || 0);
         
         loadResultsTable(data.recent_results);
+        
+        // Now fetch additional platform-wide data
+        await loadPlatformStatsAndQuizzes();
+
     } catch (error) {
         showNotification('Failed to load dashboard: ' + error.message, 'error');
+        console.error('Dashboard load error:', error);
     }
-}    
-    const resultsData = await resultsResponse.json();
+}
+
+async function loadPlatformStatsAndQuizzes() {
+    try {
+        const [quizzesResponse, allResultsResponse] = await Promise.all([
+            fetch(`${API_URL}/quizzes`, { headers: { 'Authorization': `Bearer ${authToken}` } }),
+            fetch(`${API_URL}/results/all`, { headers: { 'Authorization': `Bearer ${authToken}` } }) // Assuming a new endpoint for all results
+        ]);
+
+        const quizzesData = await quizzesResponse.json();
+        const allResultsData = await allResultsResponse.json();
         
-        // Calculate platform statistics
         const totalQuizzes = quizzesData.quizzes ? quizzesData.quizzes.length : 0;
-        const totalResults = resultsData.results ? resultsData.results.length : 0;
+        const totalResults = allResultsData.results ? allResultsData.results.length : 0;
         
         let platformAvgScore = 0;
         if (totalResults > 0) {
-            const totalPercentage = resultsData.results.reduce((sum, r) => sum + r.percentage, 0);
+            const totalPercentage = allResultsData.results.reduce((sum, r) => sum + r.percentage, 0);
             platformAvgScore = Math.round(totalPercentage / totalResults);
         }
         
-        // Update dashboard header
-        document.getElementById('dashboardUser').textContent = `Platform Overview & Your Stats | User: ${userData.name}`;
-        
-        // Update platform stats
-        document.getElementById('totalUsers').textContent = '5+'; // Demo count
+        document.getElementById('totalUsers').textContent = '5+'; // Placeholder for total users
         document.getElementById('totalQuizzesAdmin').textContent = totalQuizzes;
         document.getElementById('testsCompleted').textContent = totalResults;
         document.getElementById('avgPlatformScore').textContent = platformAvgScore + '%';
         
-        // Update user personal stats
-        const userStats = userData.stats;
-        document.getElementById('userQuizzesTaken').textContent = userStats.total_quizzes;
-        document.getElementById('userAvgScore').textContent = userStats.average_score.toFixed(1) + '%';
-        document.getElementById('userBestScore').textContent = userStats.best_score + '%';
-        document.getElementById('userTotalPoints').textContent = userStats.total_points;
-        
-        // Load quiz categories info
         loadQuizCategoriesInfo(quizzesData.quizzes);
-        
-        // Load user's recent results
-        loadResultsTable(resultsData.results);
-    // Fix: Remove misplaced closing brace and invalid finally block
-    // (Assume this belongs inside an async function with appropriate try/catch)
-    // The original try/catch above already handles errors - this finally block is improper JS.
-    // No code needed here; remove to fix syntax.
+
+    } catch (error) {
+        showNotification('Failed to load platform statistics and quizzes: ' + error.message, 'error');
+        console.error('Platform stats load error:', error);
+    }
+}
 
 function loadQuizCategoriesInfo(quizzes) {
     const quizInfoGrid = document.getElementById('quizInfoGrid');
@@ -1017,6 +1036,7 @@ function init3DLoginAnimation() {
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fill();
+            ctx.stroke();
         });
     }
     
@@ -1233,6 +1253,7 @@ function init3DSignupAnimation() {
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fill();
+            ctx.stroke();
         });
     }
     
@@ -1274,6 +1295,6 @@ function init3DSignupAnimation() {
     animate();
     
     container.animationId = animationId;
-}
+        showNotification(errorMsg, 'error');
 
-
+        }
